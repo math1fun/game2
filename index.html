@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>크리스마스 트리 켜기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap">
+<style>
+/* Layout: one-screen night scene. HUD on top, the tree fills the middle, hint line and controls below. Single dark theme by choice. */
+:root{
+  color-scheme:dark;
+  --night:#0a1620;
+  --night-hi:#12283a;
+  --ink:#e9f2f6;
+  --mute:#8fa8b8;
+  --line:rgba(233,242,246,.16);
+  --needle-a:#2c8264;
+  --needle-b:#17503f;
+  --needle-c:#25705a;
+  --needle-d:#133f33;
+  --trunk:#523729;
+  --snow:#d6e7f0;
+  --coral:#ff6a5c;
+  --amber:#ffc648;
+  --ice:#6dd2ff;
+  --rose:#ff86cf;
+  --off:#1a2b3a;
+  --off-edge:#3b5a70;
+  --star-off:#2a3e4f;
+  --font-display:"Jua","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  --font-body:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background-color:var(--night);
+  background-image:linear-gradient(180deg,var(--night) 0%,var(--night-hi) 100%);
+  background-attachment:fixed;
+  color:var(--ink);
+  font:16px/1.5 var(--font-body);
+  padding-block:12px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  overflow-x:hidden;
+  -webkit-tap-highlight-color:transparent;
+}
+#snow{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+#app{position:relative;z-index:1;min-height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+[hidden]{display:none !important}
+.tools{display:flex;gap:8px}
+h1{margin:0;font:400 23px/1.15 var(--font-display);letter-spacing:.01em;text-wrap:balance}
+.iconbtn{width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:rgba(233,242,246,.06);color:var(--ink);cursor:pointer;padding:0}
+.iconbtn:hover{background:rgba(233,242,246,.12)}
+.iconbtn:focus-visible,.btn:focus-visible,.primary:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.iconbtn svg,.btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+.hud{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:end;gap:16px}
+.stat{min-width:0}
+.stat small{display:block;color:var(--mute);font-size:12px;letter-spacing:.06em;white-space:nowrap}
+.stat b{display:block;font:400 23px/1.15 var(--font-display);font-variant-numeric:tabular-nums}
+.stat .par{font:400 13px/1 var(--font-body);color:var(--mute)}
+.stat.right{text-align:right}
+.num{font-variant-numeric:tabular-nums;color:var(--ink)}
+.meter{height:7px;margin-top:9px;border-radius:99px;background:var(--off);border:1px solid var(--off-edge);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--coral),var(--amber));transition:width .3s ease}
+
+.stage{position:relative;flex:1 1 auto;min-height:300px}
+#tree{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+
+.tier{stroke:rgba(0,0,0,.28);stroke-width:1.5;stroke-linejoin:round}
+.trunk{fill:var(--trunk)}
+.mound{fill:var(--snow)}
+.g1{fill:var(--coral)}
+.g2{fill:var(--ice)}
+.rib{fill:var(--amber)}
+.rib2{fill:var(--rose)}
+.wire{fill:none;stroke:#07111a;stroke-width:2;stroke-linecap:round;opacity:.85}
+.bloom{opacity:0;transition:opacity .8s ease;pointer-events:none}
+.halo{opacity:0;transition:opacity .3s ease;pointer-events:none}
+.halo.on{opacity:.75}
+
+.bulb{cursor:pointer;outline:none}
+.bulb[data-k="0"]{--bc:var(--coral)}
+.bulb[data-k="1"]{--bc:var(--amber)}
+.bulb[data-k="2"]{--bc:var(--ice)}
+.bulb[data-k="3"]{--bc:var(--rose)}
+.bulb .glass{fill:var(--off);stroke:var(--off-edge);stroke-width:1.5;transition:fill .25s ease,stroke .25s ease}
+.bulb.on .glass{fill:var(--bc);stroke:rgba(255,255,255,.55)}
+.bulb .socket{fill:#8d9ba6}
+.bulb .spec{fill:#fff;opacity:.16;transition:opacity .25s ease}
+.bulb.on .spec{opacity:.8}
+.bulb .mark{fill:none;stroke:transparent;stroke-width:2.5}
+.bulb.pv .mark{stroke:rgba(233,242,246,.7);stroke-dasharray:3 4}
+.bulb.pv0 .mark{stroke:var(--ink);stroke-dasharray:none}
+.bulb:focus-visible .mark{stroke:var(--ink)}
+.bulb.hint .mark{stroke:var(--amber);stroke-dasharray:none;animation:ring 1s ease-in-out infinite}
+.inner{transform-box:fill-box;transform-origin:center}
+.inner.pop{animation:pop .32s ease-out}
+
+.star .shape{fill:var(--star-off);stroke:var(--off-edge);stroke-width:1.5;stroke-linejoin:round;transition:fill .5s ease,stroke .5s ease}
+.star .rays{stroke:var(--amber);stroke-width:2.5;stroke-linecap:round;opacity:0;transition:opacity .6s ease;transform-box:fill-box;transform-origin:center}
+.star .aura{opacity:0;transition:opacity .6s ease}
+.won .bloom{opacity:.9}
+.won .star .shape{fill:var(--amber);stroke:#fff2c2;filter:url(#glow)}
+.won .star .rays{opacity:.9;animation:spin 9s linear infinite}
+.won .star .aura{opacity:1}
+.won .bulb.on .inner{animation:twinkle 1.8s ease-in-out infinite;animation-delay:calc(var(--i) * 70ms)}
+
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.22)}100%{transform:scale(1)}}
+@keyframes ring{0%,100%{opacity:1;stroke-width:2.5}50%{opacity:.35;stroke-width:5}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes twinkle{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}
+@keyframes starIn{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
+
+.tip{margin:0;text-align:center;color:var(--mute);font-size:14.5px;text-wrap:balance;min-height:2.9em}
+.win{display:grid;gap:6px;justify-items:center;text-align:center;padding:4px 8px}
+.win h2{margin:0;font:400 23px/1.2 var(--font-display);text-wrap:balance}
+.win p{margin:0;color:var(--mute);font-size:14.5px;text-wrap:balance}
+.stars{display:flex;gap:6px}
+.stars svg{width:32px;height:32px;stroke-width:1.6;stroke-linejoin:round}
+.stars .on{fill:var(--amber);stroke:var(--amber);animation:starIn .5s ease-out both}
+.stars svg:nth-child(2).on{animation-delay:.15s}
+.stars svg:nth-child(3).on{animation-delay:.3s}
+.stars .off{fill:none;stroke:var(--mute)}
+.primary{margin-top:6px;min-height:48px;padding:0 32px;border:0;border-radius:10px;background:var(--amber);color:#2b1c05;font:400 19px/1 var(--font-display);cursor:pointer}
+.primary:hover{filter:brightness(1.06)}
+
+.dock{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;min-height:48px;padding:0 8px;border:1px solid var(--line);border-radius:10px;background:rgba(233,242,246,.06);color:var(--ink);font:inherit;font-size:15px;cursor:pointer}
+.btn:hover:not(:disabled){background:rgba(233,242,246,.12)}
+.btn:disabled{opacity:.4;cursor:default}
+
+/* 움직임: 첫 등장, 은은한 반짝임, 누를 때 물결, 승리 연출 */
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.tier{transform-box:fill-box;transform-origin:50% 100%;animation:grow .6s cubic-bezier(.2,.9,.3,1.15) both;animation-delay:calc(var(--t) * 90ms)}
+.trunk,.mound{animation:fadeIn .7s ease-out both}
+.wire{animation:fadeIn .5s ease-out .5s both}
+.intro{transform-box:fill-box;transform-origin:center;animation:bulbIn .45s cubic-bezier(.2,.9,.3,1.4) both;animation-delay:calc(var(--i) * 40ms + 450ms)}
+.halo{transform-box:fill-box;transform-origin:center}
+.halo.on{animation:glow 3s ease-in-out infinite;animation-delay:calc(var(--i) * -370ms)}
+.sdrop{animation:drop .7s cubic-bezier(.2,.9,.3,1.3) both}
+.star .shape{transform-box:fill-box;transform-origin:center;animation:breathe 2.6s ease-in-out infinite}
+.won .star .shape{animation:starPop .9s ease-out}
+.ripple{fill:none;stroke:var(--ink);stroke-width:2;transform-box:fill-box;transform-origin:center;animation:ripple .6s ease-out forwards;pointer-events:none}
+.win{animation:rise .45s ease-out}
+@keyframes grow{from{transform:scale(.15,.02);opacity:0}}
+@keyframes fadeIn{from{opacity:0}}
+@keyframes bulbIn{from{opacity:0;transform:scale(.2)}}
+@keyframes glow{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+@keyframes drop{from{opacity:0;transform:translateY(-60px) scale(.3)}}
+@keyframes breathe{0%,100%{opacity:.7}50%{opacity:1}}
+@keyframes starPop{0%{transform:scale(1)}35%{transform:scale(1.7)}100%{transform:scale(1)}}
+@keyframes ripple{from{opacity:.8;transform:scale(1)}to{opacity:0;transform:scale(3)}}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+
+<canvas id="snow" aria-hidden="true"></canvas>
+<canvas id="fx" aria-hidden="true"></canvas>
+<main id="app">
+  <header class="top">
+    <h1>크리스마스 트리 켜기</h1>
+    <div class="tools">
+      <button class="iconbtn" id="mus" type="button" aria-label="음악 끄기" aria-pressed="true" title="캐럴 음악">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/><path id="musOff" d="M3 3l18 18" hidden/></svg>
+      </button>
+      <button class="iconbtn" id="snd" type="button" aria-label="효과음 끄기" aria-pressed="true" title="효과음">
+        <svg id="sndOn" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+        <svg id="sndOff" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="hud">
+    <div class="stat"><small>단계</small><b id="lv">1</b></div>
+    <div class="stat">
+      <small>켜진 전구 <span class="num" id="onTxt">0 / 6</span></small>
+      <div class="meter" id="meter" role="progressbar" aria-label="켜진 전구 비율" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="meterFill"></i></div>
+    </div>
+    <div class="stat right"><small>누른 횟수</small><b><span id="moves">0</span> <span class="par">/ 기준 <span id="par">2</span></span></b></div>
+  </div>
+
+  <div class="stage">
+    <svg id="tree" viewBox="0 0 360 450" role="group" aria-label="크리스마스 트리">
+      <defs>
+        <linearGradient id="nA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--needle-a)"/><stop offset="1" style="stop-color:var(--needle-b)"/></linearGradient>
+        <linearGradient id="nB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--needle-c)"/><stop offset="1" style="stop-color:var(--needle-d)"/></linearGradient>
+        <radialGradient id="h0"><stop offset="0" style="stop-color:var(--coral);stop-opacity:.8"/><stop offset="1" style="stop-color:var(--coral);stop-opacity:0"/></radialGradient>
+        <radialGradient id="h1"><stop offset="0" style="stop-color:var(--amber);stop-opacity:.8"/><stop offset="1" style="stop-color:var(--amber);stop-opacity:0"/></radialGradient>
+        <radialGradient id="h2"><stop offset="0" style="stop-color:var(--ice);stop-opacity:.8"/><stop offset="1" style="stop-color:var(--ice);stop-opacity:0"/></radialGradient>
+        <radialGradient id="h3"><stop offset="0" style="stop-color:var(--rose);stop-opacity:.8"/><stop offset="1" style="stop-color:var(--rose);stop-opacity:0"/></radialGradient>
+        <radialGradient id="aura"><stop offset="0" style="stop-color:var(--amber);stop-opacity:.75"/><stop offset="1" style="stop-color:var(--amber);stop-opacity:0"/></radialGradient>
+        <radialGradient id="bloom"><stop offset="0" style="stop-color:var(--amber);stop-opacity:.3"/><stop offset="1" style="stop-color:var(--amber);stop-opacity:0"/></radialGradient>
+        <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <g id="scene"></g>
+    </svg>
+  </div>
+
+  <div class="slot">
+    <p class="tip" id="tip" aria-live="polite">전구를 누르면 그 전구와 이웃한 전구의 불이 반대로 바뀌어요. 모두 켜면 꼭대기 별이 빛나요.</p>
+    <section class="win" id="win" hidden aria-live="polite">
+      <div class="stars" id="stars"></div>
+      <h2 id="winTitle">트리가 환하게 켜졌어요</h2>
+      <p id="winSub"></p>
+      <button class="primary" id="next" type="button">다음 단계</button>
+    </section>
+  </div>
+
+  <div class="dock">
+    <button class="btn" id="hint" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.7.6 1.1 1.3 1.2 2.1h4.6c.1-.8.5-1.5 1.2-2.1A6 6 0 0 0 12 3z"/></svg><span>힌트</span></button>
+    <button class="btn" id="undo" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span>되돌리기</span></button>
+    <button class="btn" id="reset" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span>다시 시작</span></button>
+  </div>
+</main>
+
+<script>
+(function(){
+"use strict";
+
+/* [행 수, 섞는 횟수] 단계별 난이도. 10단계 이후는 마지막 설정이 계속 이어집니다. */
+const LEVELS=[[3,2],[4,3],[4,4],[5,4],[5,5],[6,5],[6,6],[7,6],[7,7],[8,8]];
+const NOTES=[523.25,587.33,659.25,783.99,880,1046.5];
+const TIP="전구를 누르면 그 전구와 이웃한 전구의 불이 반대로 바뀌어요. 모두 켜면 꼭대기 별이 빛나요.";
+const $=id=>document.getElementById(id);
+const scene=$("scene"), tree=$("tree"), tipEl=$("tip"), winEl=$("win");
+const hintBtn=$("hint"), undoBtn=$("undo"), resetBtn=$("reset"), nextBtn=$("next"), sndBtn=$("snd");
+
+let level=1, n=3, N=6, par=2;
+let nb=[], pos=[], lit=[], init=[], rem=new Set(), hist=[];
+let moves=0, hints=0, won=false, muted=false, boost=0;
+let bulbs=[], halos=[];
+
+const idx=(r,c)=>r*(r+1)/2+c;
+
+function neighbors(rows){
+  const out=[];
+  for(let r=0;r<rows;r++)for(let c=0;c<=r;c++){
+    const a=[];
+    const add=(rr,cc)=>{if(rr>=0&&rr<rows&&cc>=0&&cc<=rr)a.push(idx(rr,cc));};
+    add(r,c-1);add(r,c+1);add(r-1,c-1);add(r-1,c);add(r+1,c);add(r+1,c+1);
+    out.push(a);
+  }
+  return out;
+}
+
+function starPts(cx,cy,R,r){
+  const p=[];
+  for(let k=0;k<10;k++){
+    const a=-Math.PI/2+k*Math.PI/5, rad=k%2?r:R;
+    p.push((cx+Math.cos(a)*rad).toFixed(1)+","+(cy+Math.sin(a)*rad).toFixed(1));
+  }
+  return p.join(" ");
+}
+
+/* ---------- 소리 ---------- */
+let audio=null;
+function ac(){
+  if(!audio){try{audio=new (window.AudioContext||window.webkitAudioContext)();}catch(e){audio=null;}}
+  if(audio&&audio.state==="suspended"){try{audio.resume();}catch(e){}}
+  return audio;
+}
+function tone(freq,delay,dur,vol){
+  if(muted)return;
+  const a=ac(); if(!a)return;
+  const o=a.createOscillator(), g=a.createGain(), t=a.currentTime+(delay||0);
+  o.type="triangle"; o.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(vol||.07,t+.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+(dur||.35));
+  o.connect(g); g.connect(a.destination);
+  o.start(t); o.stop(t+(dur||.35)+.05);
+}
+function jingle(){
+  [523.25,659.25,783.99,1046.5,1318.5,1567.98].forEach((f,k)=>tone(f,k*.11,.6,.06));
+}
+
+/* ---------- 캐럴 (전통 캐럴 선율을 종소리로 연주) ---------- */
+const SONGS=[
+  {beat:.34,shift:0,notes:"E5:1 E5:1 E5:2 E5:1 E5:1 E5:2 E5:1 G5:1 C5:1.5 D5:.5 E5:4 F5:1 F5:1 F5:1.5 F5:.5 F5:1 E5:1 E5:1 E5:.5 E5:.5 E5:1 D5:1 D5:1 E5:1 D5:2 G5:2 E5:1 E5:1 E5:2 E5:1 E5:1 E5:2 E5:1 G5:1 C5:1.5 D5:.5 E5:4 F5:1 F5:1 F5:1 F5:1 F5:1 E5:1 E5:1 E5:.5 E5:.5 G5:1 G5:1 F5:1 D5:1 C5:4 R:2"},
+  {beat:.4,shift:12,notes:"D4:1 G4:1 G4:.5 A4:.5 G4:.5 F#4:.5 E4:1 E4:1 E4:1 A4:1 A4:.5 B4:.5 A4:.5 G4:.5 F#4:1 D4:1 D4:1 B4:1 B4:.5 C5:.5 B4:.5 A4:.5 G4:1 E4:1 D4:.5 D4:.5 E4:1 A4:1 F#4:1 G4:3 R:1"},
+  {beat:.52,shift:0,notes:"G4:1.5 A4:.5 G4:1 E4:3 G4:1.5 A4:.5 G4:1 E4:3 D5:2 D5:1 B4:3 C5:2 C5:1 G4:3 A4:2 A4:1 C5:1.5 B4:.5 A4:1 G4:1.5 A4:.5 G4:1 E4:3 A4:2 A4:1 C5:1.5 B4:.5 A4:1 G4:1.5 A4:.5 G4:1 E4:3 D5:2 D5:1 F5:1.5 D5:.5 B4:1 C5:3 E5:3 C5:1 G4:1 E4:1 G4:1.5 F4:.5 D4:1 C4:3 R:3"}
+];
+const PITCH={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+SONGS.forEach(sg=>{
+  sg.seq=sg.notes.trim().split(/\s+/).map(tok=>{
+    const p=tok.split(":"), d=parseFloat(p[1]);
+    if(p[0]==="R")return {m:null,d:d};
+    const m=/^([A-G])(#|b)?(\d)$/.exec(p[0]);
+    return {m:12*(parseInt(m[3],10)+1)+PITCH[m[1]]+(m[2]==="#"?1:m[2]==="b"?-1:0)+sg.shift,d:d};
+  });
+});
+const mus={on:false,song:0,i:0,t:0,timer:0,out:null};
+let wantMusic=true;
+
+function bell(f,t,dur,out){
+  [[1,.9,1.6],[2,.28,.9],[3.01,.1,.5]].forEach(pt=>{
+    const o=audio.createOscillator(), g=audio.createGain();
+    const len=.35+dur*pt[2]*.8;
+    o.type="sine"; o.frequency.value=f*pt[0];
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(.05*pt[1],t+.008);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+len);
+    o.connect(g); g.connect(out);
+    o.start(t); o.stop(t+len+.05);
+  });
+}
+function musicTick(){
+  if(!mus.on||!audio)return;
+  let sg=SONGS[mus.song];
+  while(mus.t<audio.currentTime+1.2){
+    const nt=sg.seq[mus.i];
+    if(nt.m!==null)bell(440*Math.pow(2,(nt.m-69)/12),mus.t,nt.d*sg.beat,mus.out);
+    mus.t+=nt.d*sg.beat; mus.i++;
+    if(mus.i>=sg.seq.length){mus.i=0;mus.song=(mus.song+1)%SONGS.length;sg=SONGS[mus.song];mus.t+=.4;}
+  }
+  mus.timer=setTimeout(musicTick,250);
+}
+function startMusic(){
+  const a=ac(); if(!a||mus.on)return;
+  mus.on=true; mus.i=0;
+  mus.out=a.createGain(); mus.out.gain.value=1; mus.out.connect(a.destination);
+  mus.t=a.currentTime+.15;
+  musicTick();
+}
+function stopMusic(){
+  if(!mus.on)return;
+  mus.on=false; clearTimeout(mus.timer);
+  const out=mus.out; mus.out=null;
+  if(out&&audio){
+    out.gain.setTargetAtTime(0,audio.currentTime,.04);
+    setTimeout(()=>{try{out.disconnect();}catch(e){}},400);
+  }
+}
+
+/* ---------- 퍼즐 만들기 ---------- */
+function newPuzzle(){
+  const cfg=LEVELS[Math.min(level,LEVELS.length)-1];
+  n=cfg[0]; N=n*(n+1)/2; par=cfg[1]; nb=neighbors(n);
+  const minOff=Math.max(2,Math.round(N*.25));
+  let board, P, tries=0, off=0;
+  do{
+    P=new Set();
+    while(P.size<par)P.add(Math.floor(Math.random()*N));
+    board=Array(N).fill(true);
+    P.forEach(i=>{board[i]=!board[i];nb[i].forEach(j=>{board[j]=!board[j];});});
+    off=board.filter(v=>!v).length;
+    tries++;
+  }while(off<minOff&&tries<80);
+  if(off===0){
+    P=new Set([0]); board=Array(N).fill(true);
+    board[0]=false; nb[0].forEach(j=>{board[j]=false;});
+  }
+  init=board.slice(); lit=board.slice(); rem=new Set(P);
+  hist=[]; moves=0; hints=0; won=false; boost=0;
+  build();
+  setTip(TIP);
+  winEl.hidden=true; tipEl.hidden=false;
+  update();
+}
+
+function restartSame(){
+  lit=init.slice();
+  const P=new Set();
+  // 처음 상태로 돌아가면 남은 눌러야 할 전구도 처음으로 돌아갑니다.
+  hist.forEach(i=>{P.has(i)?P.delete(i):P.add(i);});
+  rem.forEach(i=>{P.has(i)?P.delete(i):P.add(i);});
+  rem=P; hist=[]; moves=0; hints=0; won=false; boost=0;
+  tree.classList.remove("won");
+  clearHint();
+  setTip(TIP);
+  winEl.hidden=true; tipEl.hidden=false;
+  update();
+}
+
+/* ---------- 그리기 ---------- */
+function build(){
+  const cx=180;
+  const dx=Math.min(76,280/Math.max(1,n-1));
+  const dy=Math.min(74,280/Math.max(1,n-1));
+  const rb=Math.min(19,dx*.42);
+  const span=(n-1)*dy;
+  const topStar=10+(430-(span+139))/2;
+  const apex=topStar+30, y1=apex+44;
+  pos=[];
+  for(let r=0;r<n;r++)for(let c=0;c<=r;c++)pos.push({r:r,c:c,x:cx+(c-r/2)*dx,y:y1+r*dy,k:(r+2*c)%4});
+  const baseOf=r=>y1+r*dy+rb+12;
+  const baseLast=baseOf(n-1), hwLast=(n-1)*dx/2+rb+12;
+  let s="";
+
+  s+=`<ellipse class="bloom" cx="${cx}" cy="${(apex+baseLast)/2}" rx="190" ry="${(baseLast-apex)/2+70}" fill="url(#bloom)"/>`;
+  s+=`<rect class="trunk" x="${cx-13}" y="${baseLast-8}" width="26" height="36" rx="3"/>`;
+
+  for(let r=n-1;r>=0;r--){
+    const hw=r*dx/2+rb+12, base=baseOf(r), ap=r===0?apex:y1+r*dy-dy*.9-6;
+    s+=`<path class="tier" style="--t:${n-1-r}" fill="url(#${r%2?"nB":"nA"})" d="M${cx} ${ap} L${cx+hw} ${base} Q${cx} ${base-14} ${cx-hw} ${base}Z"/>`;
+  }
+
+  const mcy=baseLast+24, mrx=Math.max(120,hwLast*.9), gx=Math.min(hwLast*.62+10,118);
+  s+=`<ellipse class="mound" cx="${cx}" cy="${mcy}" rx="${mrx}" ry="12"/>`;
+  s+=`<rect class="g1" x="${cx-gx-15}" y="${mcy-20}" width="30" height="24" rx="2"/>`;
+  s+=`<rect class="rib" x="${cx-gx-3}" y="${mcy-20}" width="6" height="24"/>`;
+  s+=`<rect class="rib" x="${cx-gx-15}" y="${mcy-10}" width="30" height="5"/>`;
+  s+=`<rect class="g2" x="${cx+gx-12}" y="${mcy-16}" width="24" height="20" rx="2"/>`;
+  s+=`<rect class="rib2" x="${cx+gx-3}" y="${mcy-16}" width="6" height="20"/>`;
+
+  for(let r=1;r<n;r++){
+    const yy=y1+r*dy-rb-1; let d="";
+    for(let c=0;c<=r;c++){
+      const x=cx+(c-r/2)*dx;
+      d+=c?`Q${x-dx/2} ${yy+10} ${x} ${yy}`:`M${x} ${yy}`;
+    }
+    s+=`<path class="wire" d="${d}"/>`;
+  }
+
+  pos.forEach(p=>{
+    s+=`<circle class="halo" style="--i:${p.r*(p.r+1)/2+p.c}" cx="${p.x}" cy="${p.y}" r="${(rb*2.7).toFixed(1)}" fill="url(#h${p.k})"/>`;
+  });
+
+  const hit=Math.min(dx,dy)*.48;
+  pos.forEach((p,i)=>{
+    s+=`<g class="bulb" data-i="${i}" data-k="${p.k}" style="--i:${i}" transform="translate(${p.x} ${p.y})" role="button" tabindex="0">`
+      +`<circle class="hit" r="${hit.toFixed(1)}" fill="transparent"/>`
+      +`<circle class="mark" r="${(rb+7).toFixed(1)}"/>`
+      +`<g class="intro"><g class="inner"><rect class="socket" x="-5" y="${(-rb-6).toFixed(1)}" width="10" height="8" rx="2"/>`
+      +`<circle class="glass" r="${rb.toFixed(1)}"/>`
+      +`<ellipse class="spec" cx="${(-rb*.32).toFixed(1)}" cy="${(-rb*.38).toFixed(1)}" rx="${(rb*.26).toFixed(1)}" ry="${(rb*.16).toFixed(1)}" transform="rotate(-30 ${(-rb*.32).toFixed(1)} ${(-rb*.38).toFixed(1)})"/></g></g></g>`;
+  });
+
+  let rays="";
+  for(let k=0;k<8;k++){
+    const a=k*Math.PI/4, r1=29, r2=k%2?36:42;
+    rays+=`<line x1="${(Math.cos(a)*r1).toFixed(1)}" y1="${(Math.sin(a)*r1).toFixed(1)}" x2="${(Math.cos(a)*r2).toFixed(1)}" y2="${(Math.sin(a)*r2).toFixed(1)}"/>`;
+  }
+  s+=`<g class="star" transform="translate(${cx} ${apex-8})"><g class="sdrop" style="animation-delay:${n*90+250}ms"><circle class="aura" r="56" fill="url(#aura)"/><g class="rays">${rays}</g><polygon class="shape" points="${starPts(0,0,22,9.5)}"/></g></g>`;
+
+  s+=`<g id="fxLayer"></g>`;
+  scene.innerHTML=s;
+  tree.classList.remove("won");
+  bulbs=Array.from(scene.querySelectorAll(".bulb"));
+  halos=Array.from(scene.querySelectorAll(".halo"));
+}
+
+function update(){
+  let on=0;
+  bulbs.forEach((g,i)=>{
+    const v=lit[i]; if(v)on++;
+    g.classList.toggle("on",v);
+    halos[i].classList.toggle("on",v);
+    g.setAttribute("aria-label",(pos[i].r+1)+"번째 줄 "+(pos[i].c+1)+"번째 전구, "+(v?"켜짐":"꺼짐"));
+  });
+  $("lv").textContent=level;
+  $("onTxt").textContent=on+" / "+N;
+  const pct=Math.round(on/N*100);
+  $("meterFill").style.width=pct+"%";
+  $("meter").setAttribute("aria-valuenow",pct);
+  $("moves").textContent=moves;
+  $("par").textContent=par;
+  hintBtn.disabled=won||rem.size===0;
+  undoBtn.disabled=won||hist.length===0;
+}
+
+function setTip(t){tipEl.textContent=t;}
+
+/* ---------- 조작 ---------- */
+function flip(i){
+  const changed=[i].concat(nb[i]);
+  changed.forEach(j=>{lit[j]=!lit[j];});
+  rem.has(i)?rem.delete(i):rem.add(i);
+  changed.forEach(j=>{
+    const inner=bulbs[j].querySelector(".inner");
+    inner.classList.remove("pop");
+    void inner.getBoundingClientRect();
+    inner.classList.add("pop");
+  });
+}
+
+function ripple(i){
+  if(reduce)return;
+  const layer=scene.querySelector("#fxLayer"); if(!layer)return;
+  const p=pos[i], c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+  c.setAttribute("class","ripple"); c.setAttribute("cx",p.x); c.setAttribute("cy",p.y); c.setAttribute("r",14);
+  c.addEventListener("animationend",()=>c.remove());
+  layer.appendChild(c);
+}
+
+function press(i){
+  if(won)return;
+  clearHint();
+  ripple(i);
+  flip(i);
+  moves++; hist.push(i);
+  setTip(TIP);
+  const f=NOTES[(pos[i].r+pos[i].c)%6]*(lit[i]?1:.5);
+  tone(f,0,.4,.08);
+  update();
+  if(lit.every(Boolean))win();
+}
+
+function undo(){
+  if(won||!hist.length)return;
+  clearHint();
+  const i=hist.pop();
+  flip(i); moves--;
+  tone(NOTES[0]*.5,0,.25,.05);
+  setTip(TIP);
+  update();
+}
+
+function showHint(){
+  if(won||!rem.size)return;
+  clearHint();
+  const arr=Array.from(rem);
+  const i=arr[Math.floor(Math.random()*arr.length)];
+  bulbs[i].classList.add("hint");
+  hints++;
+  setTip("깜빡이는 고리가 있는 전구를 눌러 보세요.");
+  update();
+}
+
+function clearHint(){
+  bulbs.forEach(g=>g.classList.remove("hint"));
+}
+
+function setPreview(i){
+  clearPreview();
+  bulbs[i].classList.add("pv0");
+  nb[i].forEach(j=>bulbs[j].classList.add("pv"));
+}
+function clearPreview(){
+  bulbs.forEach(g=>g.classList.remove("pv","pv0"));
+}
+
+function starSvg(on){
+  return `<svg class="${on?"on":"off"}" viewBox="0 0 24 24" aria-hidden="true"><polygon points="${starPts(12,12.6,10.5,4.6)}"/></svg>`;
+}
+
+function win(){
+  won=true;
+  clearPreview(); clearHint();
+  tree.classList.add("won");
+  let stars=moves<=par?3:moves<=par+3?2:1;
+  let usedHint=false;
+  if(hints>0&&stars===3){stars=2;usedHint=true;}
+  const titles={3:"완벽해요! 트리가 환하게 켜졌어요",2:"잘했어요! 트리가 환하게 켜졌어요",1:"성공! 트리가 환하게 켜졌어요"};
+  const tails={3:"기준 이하로 켰어요.",2:usedHint?"힌트 없이 풀면 별 3개예요.":"조금만 더 줄이면 별 3개예요.",1:"더 적게 눌러서 별 3개에 도전해 보세요."};
+  $("stars").innerHTML=starSvg(stars>=1)+starSvg(stars>=2)+starSvg(stars>=3);
+  $("winTitle").textContent=titles[stars];
+  $("winSub").textContent=moves+"번 눌렀어요 (기준 "+par+"번). "+tails[stars];
+  tipEl.hidden=true; winEl.hidden=false;
+  boost=90;
+  jingle();
+  celebrate();
+  update();
+}
+
+tree.addEventListener("pointerdown",e=>{
+  const g=e.target.closest(".bulb");
+  if(!g||won)return;
+  setPreview(+g.dataset.i);
+});
+["pointerup","pointercancel","pointerleave"].forEach(t=>tree.addEventListener(t,clearPreview));
+tree.addEventListener("click",e=>{
+  const g=e.target.closest(".bulb");
+  if(!g||won)return;
+  press(+g.dataset.i);
+});
+tree.addEventListener("keydown",e=>{
+  if(e.key!=="Enter"&&e.key!==" ")return;
+  const g=e.target.closest&&e.target.closest(".bulb");
+  if(!g||won)return;
+  e.preventDefault();
+  press(+g.dataset.i);
+});
+
+hintBtn.addEventListener("click",showHint);
+undoBtn.addEventListener("click",undo);
+resetBtn.addEventListener("click",restartSame);
+nextBtn.addEventListener("click",()=>{level++;newPuzzle();});
+sndBtn.addEventListener("click",()=>{
+  muted=!muted;
+  sndBtn.setAttribute("aria-pressed",String(!muted));
+  sndBtn.setAttribute("aria-label",muted?"효과음 켜기":"효과음 끄기");
+  $("sndOn").hidden=muted; $("sndOff").hidden=!muted;
+  if(!muted)tone(NOTES[2],0,.3,.06);
+});
+
+const musBtn=$("mus");
+musBtn.addEventListener("click",()=>{
+  wantMusic=!wantMusic;
+  if(wantMusic)startMusic(); else stopMusic();
+  musBtn.setAttribute("aria-pressed",String(wantMusic));
+  musBtn.setAttribute("aria-label",wantMusic?"음악 끄기":"음악 켜기");
+  $("musOff").hidden=wantMusic;
+});
+/* 브라우저 규칙상 소리는 화면을 처음 누른 뒤에 시작됩니다. */
+function firstTouch(e){
+  if(e.target.closest&&e.target.closest("#mus"))return;
+  window.removeEventListener("pointerdown",firstTouch,true);
+  window.removeEventListener("keydown",firstTouch,true);
+  if(wantMusic)startMusic();
+}
+window.addEventListener("pointerdown",firstTouch,true);
+window.addEventListener("keydown",firstTouch,true);
+document.addEventListener("visibilitychange",()=>{
+  if(!audio)return;
+  try{document.hidden?audio.suspend():audio.resume();}catch(e){}
+});
+
+/* ---------- 눈 내리는 밤하늘 ---------- */
+const cv=$("snow"), g2=cv.getContext("2d");
+const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+let W=0,H=0,dpr=1,flakes=[],sky=[],last=0,shoot=null,nextShoot=3500;
+
+function mk(fresh){
+  return {x:Math.random()*W,y:fresh?-6:Math.random()*H,r:Math.random()*2.2+.8,v:Math.random()*20+18,d:Math.random()*6.28,s:Math.random()*.6+.2,dead:false};
+}
+function size(){
+  dpr=Math.min(2,window.devicePixelRatio||1);
+  W=window.innerWidth; H=window.innerHeight;
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  g2.setTransform(dpr,0,0,dpr,0,0);
+  fxSize();
+  sky=Array.from({length:46},()=>({x:Math.random()*W,y:Math.random()*H*.7,r:Math.random()*1.1+.3,p:Math.random()*6.28}));
+  if(!flakes.length)flakes=Array.from({length:60},()=>mk(false));
+  if(reduce)draw(0);
+}
+function draw(t){
+  g2.clearRect(0,0,W,H);
+  for(const s of sky){
+    const a=reduce?.4:.25+.35*Math.sin(t/900+s.p);
+    g2.fillStyle="rgba(233,242,246,"+a.toFixed(2)+")";
+    g2.beginPath(); g2.arc(s.x,s.y,s.r,0,6.283); g2.fill();
+  }
+  if(reduce)return;
+  if(shoot){
+    const a=Math.max(0,1-shoot.life/1.1), L=70, ang=Math.atan2(shoot.vy,shoot.vx);
+    const tx=shoot.x-Math.cos(ang)*L, ty=shoot.y-Math.sin(ang)*L;
+    const gr=g2.createLinearGradient(shoot.x,shoot.y,tx,ty);
+    gr.addColorStop(0,"rgba(255,255,255,"+a.toFixed(2)+")");
+    gr.addColorStop(1,"rgba(255,255,255,0)");
+    g2.strokeStyle=gr; g2.lineWidth=1.8;
+    g2.beginPath(); g2.moveTo(shoot.x,shoot.y); g2.lineTo(tx,ty); g2.stroke();
+  }
+  for(const f of flakes){
+    g2.fillStyle="rgba(255,255,255,"+(.3+f.r*.2).toFixed(2)+")";
+    g2.beginPath(); g2.arc(f.x,f.y,f.r,0,6.283); g2.fill();
+  }
+}
+function frame(t){
+  const dt=Math.min(.05,(t-last)/1000||0); last=t;
+  const want=60+boost;
+  if(!shoot&&t>nextShoot){
+    shoot={x:W*.1+Math.random()*W*.7,y:Math.random()*H*.25,vx:360+Math.random()*160,vy:140+Math.random()*80,life:0};
+    nextShoot=t+7000+Math.random()*6000;
+  }
+  if(shoot){shoot.x+=shoot.vx*dt;shoot.y+=shoot.vy*dt;shoot.life+=dt;if(shoot.life>1.1)shoot=null;}
+  while(flakes.length<want)flakes.push(mk(true));
+  for(const f of flakes){
+    f.y+=f.v*dt*(1+boost/200);
+    f.d+=dt*f.s*2;
+    f.x+=Math.sin(f.d)*12*dt;
+    if(f.y>H+6){
+      if(flakes.length>want)f.dead=true; else Object.assign(f,mk(true));
+    }
+  }
+  flakes=flakes.filter(f=>!f.dead);
+  draw(t);
+  requestAnimationFrame(frame);
+}
+/* ---------- 승리 불꽃놀이와 색종이 ---------- */
+const fxCv=$("fx"), fg=fxCv.getContext("2d");
+const PAL=["#ff6a5c","#ffc648","#6dd2ff","#ff86cf","#ffffff"];
+let parts=[], fxRun=false, fxLast=0, pend=0;
+function fxSize(){
+  fxCv.width=Math.round(W*dpr); fxCv.height=Math.round(H*dpr);
+  fg.setTransform(dpr,0,0,dpr,0,0);
+}
+function burst(x,y,count){
+  const col=PAL[Math.floor(Math.random()*PAL.length)];
+  for(let k=0;k<count;k++){
+    const a=Math.random()*6.283, sp=60+Math.random()*190;
+    parts.push({t:"s",x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:0,max:.9+Math.random()*.7,c:col,r:1.6+Math.random()*1.6});
+  }
+}
+function confetti(count){
+  for(let k=0;k<count;k++){
+    parts.push({t:"c",x:Math.random()*W,y:-10-Math.random()*H*.3,vx:(Math.random()-.5)*40,vy:70+Math.random()*110,rot:Math.random()*6.28,vr:(Math.random()-.5)*8,life:0,max:4+Math.random()*2,c:PAL[Math.floor(Math.random()*PAL.length)],w:5+Math.random()*4,h:3+Math.random()*3});
+  }
+}
+function celebrate(){
+  if(reduce)return;
+  const st=scene.querySelector(".star"); if(!st)return;
+  const b=st.getBoundingClientRect(), sx=b.left+b.width/2, sy=b.top+b.height/2;
+  burst(sx,sy,46);
+  [[-90,-70,320],[100,-40,560],[-30,-130,820],[70,-110,1080]].forEach(o=>{
+    pend++;
+    setTimeout(()=>{pend--;burst(sx+o[0],sy+o[1],40);},o[2]);
+  });
+  confetti(70);
+  if(!fxRun){fxRun=true;fxLast=performance.now();requestAnimationFrame(fxFrame);}
+}
+function fxFrame(t){
+  const dt=Math.min(.05,(t-fxLast)/1000||0); fxLast=t;
+  fg.clearRect(0,0,W,H);
+  parts=parts.filter(p=>p.life<p.max&&p.y<H+20);
+  for(const p of parts){
+    p.life+=dt;
+    if(p.t==="s"){
+      p.vy+=180*dt; p.vx*=.985; p.x+=p.vx*dt; p.y+=p.vy*dt;
+      fg.globalAlpha=Math.max(0,1-p.life/p.max); fg.fillStyle=p.c;
+      fg.beginPath(); fg.arc(p.x,p.y,p.r,0,6.283); fg.fill();
+    }else{
+      p.x+=p.vx*dt+Math.sin(p.life*3)*20*dt; p.y+=p.vy*dt; p.rot+=p.vr*dt;
+      fg.globalAlpha=Math.max(0,Math.min(1,p.max-p.life));
+      fg.save(); fg.translate(p.x,p.y); fg.rotate(p.rot); fg.fillStyle=p.c;
+      fg.fillRect(-p.w/2,-p.h/2,p.w,p.h); fg.restore();
+    }
+  }
+  fg.globalAlpha=1;
+  if(parts.length||pend)requestAnimationFrame(fxFrame);
+  else{fxRun=false;fg.clearRect(0,0,W,H);}
+}
+window.addEventListener("resize",size);
+
+size();
+newPuzzle();
+if(!reduce)requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
